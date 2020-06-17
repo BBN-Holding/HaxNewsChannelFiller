@@ -32,9 +32,9 @@ public class Listener extends ListenerAdapter {
 
     @Override
     public void onGuildMessageReceived(@Nonnull GuildMessageReceivedEvent event) {
-        if (!(event.getChannel().getId().equals(config.getString("VCLOG_ID"))
-                && event.getAuthor().getId().equals("BBNBOT_ID"))&&
-                !event.getChannel().getId().equals(config.getString("NC_ID"))) {
+        boolean isvclog = event.getChannel().getId().equals(config.getString("VCLOG_ID")) && event.getAuthor().getId().equals(config.getString("BBNBOT_ID"));
+        boolean isnews = event.getChannel().getId().equals(config.getString("NC_ID"));
+        if (!isvclog&&!isnews) {
             if (lastmessages.size() == 5) {
                 lastmessages.remove(4);
             }
@@ -91,8 +91,15 @@ public class Listener extends ListenerAdapter {
                     if (lastlastmessages == null) {
                         StringBuilder stringBuilder = new StringBuilder();
                         for (Message lastmessage : lastmessages) {
-                            stringBuilder.append(String.format("#%s - %s: %s (%s Attachment(s))\n", lastmessage.getChannel().getName(),
-                                    lastmessage.getAuthor().getAsTag(), lastmessage.getContentRaw(), lastmessage.getAttachments().size()));
+                            String attachment = "";
+                            if (lastmessage.getEmbeds().size()>0)
+                                attachment += String.format(",%d Embeds", lastmessage.getEmbeds().size());
+                            if (lastmessage.getAttachments().size()>0)
+                                attachment += String.format(",%d Attachments", lastmessage.getAttachments().size());
+                            if (attachment.length()!=0)
+                                attachment = String.format("(%s)", attachment.replaceFirst(",", ""));
+                            stringBuilder.append(String.format("#%s - %s: %s %s\n", lastmessage.getChannel().getName(),
+                                    lastmessage.getAuthor().getAsTag(), lastmessage.getContentRaw(), attachment));
                         }
                         if (stringBuilder.chars().count() == 0) {
                             lastmessagesoutput = "No new captured Messages";
