@@ -2,18 +2,20 @@ package com.hax.newschannelfiller;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.Message;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.entities.MessageHistory;
-import net.dv8tion.jda.api.entities.TextChannel;
+import net.dv8tion.jda.api.OnlineStatus;
+import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.ReadyEvent;
 import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
+import net.dv8tion.jda.api.events.user.UserActivityEndEvent;
+import net.dv8tion.jda.api.events.user.UserActivityStartEvent;
+import net.dv8tion.jda.api.events.user.update.UserUpdateOnlineStatusEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.json.JSONObject;
 
 import javax.annotation.Nonnull;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.List;
 
 public class Listener extends ListenerAdapter {
 
@@ -31,10 +33,25 @@ public class Listener extends ListenerAdapter {
     }
 
     @Override
+    public void onUserUpdateOnlineStatus(@Nonnull UserUpdateOnlineStatusEvent event) {
+        this.updateNewsChannel(event.getJDA());
+    }
+
+    @Override
+    public void onUserActivityStart(@Nonnull UserActivityStartEvent event) {
+        this.updateNewsChannel(event.getJDA());
+    }
+
+    @Override
+    public void onUserActivityEnd(@Nonnull UserActivityEndEvent event) {
+        this.updateNewsChannel(event.getJDA());
+    }
+
+    @Override
     public void onGuildMessageReceived(@Nonnull GuildMessageReceivedEvent event) {
         boolean isvclog = event.getChannel().getId().equals(config.getString("VCLOG_ID")) && event.getAuthor().getId().equals(config.getString("BBNBOT_ID"));
         boolean isnews = event.getChannel().getId().equals(config.getString("NC_ID"));
-        if (!isvclog&&!isnews) {
+        if (!isvclog && !isnews) {
             if (lastmessages.size() == 5) {
                 lastmessages.remove(4);
             }
@@ -92,11 +109,11 @@ public class Listener extends ListenerAdapter {
                         StringBuilder stringBuilder = new StringBuilder();
                         for (Message lastmessage : lastmessages) {
                             String attachment = "";
-                            if (lastmessage.getEmbeds().size()>0)
+                            if (lastmessage.getEmbeds().size() > 0)
                                 attachment += String.format(",%d Embeds", lastmessage.getEmbeds().size());
-                            if (lastmessage.getAttachments().size()>0)
+                            if (lastmessage.getAttachments().size() > 0)
                                 attachment += String.format(",%d Attachments", lastmessage.getAttachments().size());
-                            if (attachment.length()!=0)
+                            if (attachment.length() != 0)
                                 attachment = String.format("(%s)", attachment.replaceFirst(",", ""));
                             stringBuilder.append(String.format("#%s - %s: %s %s\n", lastmessage.getChannel().getName(),
                                     lastmessage.getAuthor().getAsTag(), lastmessage.getContentRaw(), attachment));
@@ -106,11 +123,34 @@ public class Listener extends ListenerAdapter {
                         } else lastmessagesoutput = stringBuilder.toString();
                     } else lastmessagesoutput = lastlastmessages;
 
+                    Role insiderrole = message.getGuild().getRoleById(config.getString("INSIDERROLE_ID"));
+                    message.getGuild().retrieveMembers();
+                    ArrayList<String> statusinsider = new ArrayList<>();
+                    List<Member> insider = message.getGuild().getMembersWithRoles(insiderrole);
+                    for (int i = 0; i < insider.size(); i++) {
+                        Member member = insider.get(i);
+                        if (member.getOnlineStatus() != OnlineStatus.OFFLINE) {
+                            String game = "";
+                            if (member.getActivities().size()!=0) {
+                                for (Activity activity : member.getActivities()) {
+                                    if (!activity.getName().equals("Custom Status"))
+                                        game += String.format(", %s", activity.getName());
+                                }
+                            }
+                            game = game.replaceFirst(", ", "");
+                            String vc = (member.getVoiceState() != null) ? ((member.getVoiceState().getChannel() != null) ?
+                                    "(" + member.getVoiceState().getChannel().getName() + ")" : "") : "";
+                            if (game.length()!=0) game = String.format(" - %s", game);
+                            statusinsider.add(String.format("%s - %s %s%s", member.getUser().getAsTag(), member.getOnlineStatus(), vc, game));
+                        }
+                    }
+
                     message.editMessage(
                             new EmbedBuilder()
                                     .setTitle("Overview")
-                                    .addField("Last 5 Actions in #voicelog", String.join("\n", vcactions.toArray(new String[0])), true)
-                                    .addField("Last 5 new Messages", lastmessagesoutput, true)
+                                    .addField("Last 5 Actions in #voicelog", String.join("\n", vcactions.toArray(new String[0])), false)
+                                    .addField("Last 5 new Messages", lastmessagesoutput, false)
+                                    .addField("Online Insiders", String.join("\n", statusinsider.toArray(new String[0])), false)
                                     .setFooter("Last updated", "https://bigbotnetwork.com/images/avatar.png")
                                     .setTimestamp(Instant.now())
                                     .build()

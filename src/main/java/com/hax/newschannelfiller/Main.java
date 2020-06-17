@@ -28,6 +28,7 @@ public class Main {
                                 .put("BBNBOT_ID", "")
                                 .put("VCLOG_ID", "")
                                 .put("NC_ID", "")
+                                .put("INSIDERROLE_ID", "")
                                 .toString(2));
             } catch (IOException e) {
                 e.printStackTrace();
